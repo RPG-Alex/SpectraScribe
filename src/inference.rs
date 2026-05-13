@@ -1,7 +1,5 @@
 use crate::{
-    data::{ELEMENT_COUNT, ELEMENTS, Spectra, SpectraScribeBatcher},
-    output::ConfusionMatrix,
-    training::TrainingConfig,
+    data::{ELEMENT_COUNT, ELEMENTS, Spectra, SpectraScribeBatcher}, error::SpectraError, output::ConfusionMatrix, training::TrainingConfig
 };
 
 use burn::{
@@ -36,13 +34,13 @@ pub fn create_confusion_matrices<B: Backend>(
     predictions: Tensor<B, 2>,
     items: Vec<Spectra>,
     threshold: f64,
-) -> Vec<ConfusionMatrix> {
+) -> Result<Vec<ConfusionMatrix>, SpectraError> {
     let mut confusion_matrices: Vec<ConfusionMatrix> = Vec::with_capacity(ELEMENT_COUNT);
 
     for element in ELEMENTS {
         confusion_matrices.push(ConfusionMatrix::new(element));
     }
-    let predicted_tensor = predictions.greater_elem(threshold);
+    let predicted_tensor = predictions.greater_elem(threshold).int();
     let pred_iter = predicted_tensor.iter_dim(0);
 
     for (p, t) in pred_iter.into_iter().zip(items.iter()) {
@@ -53,8 +51,8 @@ pub fn create_confusion_matrices<B: Backend>(
             .expect("Correct amount of tensor data");
 
         for (i, (predicted_atom, true_atom)) in (output_data
-            .as_slice::<u8>()
-            .unwrap()
+            .as_slice::<i32>()
+            ?
             .iter()
             .zip(t.element_present))
         .enumerate()
@@ -64,10 +62,10 @@ pub fn create_confusion_matrices<B: Backend>(
                 (0, false) => confusion_matrices[i].true_negative += 1,
                 (1, false) => confusion_matrices[i].false_positive += 1,
                 (0, true) => confusion_matrices[i].false_negative += 1,
-                _ => unreachable!("All possibilites should have matched !"),
+                (i32::MIN..=-1_i32, _) | (2_i32..=i32::MAX, _) => unreachable!("Values outside of 0 and 1 should be unreachable")
             }
         }
     }
 
-    confusion_matrices
+    Ok(confusion_matrices)
 }

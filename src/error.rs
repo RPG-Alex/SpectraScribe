@@ -1,3 +1,4 @@
+use burn::tensor::DataError;
 use mass_spectrometry::structs::similarity_errors::SimilarityComputationError;
 
 use mascot_rs::error::MascotError;
@@ -8,6 +9,8 @@ pub enum SpectraError {
     Mascot(MascotError),
     SimilarityComputation(SimilarityComputationError),
     Io(std::io::Error),
+    BurnData(DataError),
+    Csv(csv::Error)
 }
 
 impl From<MascotError> for SpectraError {
@@ -25,5 +28,17 @@ impl From<SimilarityComputationError> for SpectraError {
 impl From<std::io::Error> for SpectraError {
     fn from(value: std::io::Error) -> Self {
         Self::Io(value)
+    }
+}
+
+impl From<DataError> for SpectraError {
+    fn from(value: DataError) -> Self {
+        Self::BurnData(value)
+    }
+}
+
+impl From<csv::Error> for SpectraError {
+    fn from(value: csv::Error) -> Self {
+        Self::Csv(value)
     }
 }

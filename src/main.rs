@@ -30,7 +30,7 @@ fn main() -> Result<(), SpectraError> {
     println!("Loading spectra.");
     let dataset = SpectraData::new()?;
     println!("Finished loading spectra");
-    let model_config = ModelConfig::new(ELEMENT_COUNT, 256)
+    let model_config = ModelConfig::new(ELEMENT_COUNT, 100)
         .with_class_weights(Some(dataset.class_weights.clone()));
 
     crate::training::train::<MyAutodiffBackend>(
@@ -47,8 +47,9 @@ fn main() -> Result<(), SpectraError> {
 
     let file = File::create("results.csv")?;
     let mut wtr = Writer::from_writer(file);
-    for matrix in confusion_matrices {
-        wtr.serialize(matrix).unwrap();
+    
+    for matrix in confusion_matrices? {
+        wtr.serialize(matrix)?;
     }
 
     wtr.flush()?;
