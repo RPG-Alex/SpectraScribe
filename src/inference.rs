@@ -1,5 +1,8 @@
 use crate::{
-    data::{ELEMENT_COUNT, ELEMENTS, Spectra, SpectraScribeBatcher}, error::SpectraError, output::ConfusionMatrix, training::TrainingConfig
+    data::{ELEMENT_COUNT, ELEMENTS, SpectraScribeBatcher, SpectrumSample},
+    error::SpectraError,
+    output::ConfusionMatrix,
+    training::TrainingConfig,
 };
 
 use burn::{
@@ -11,28 +14,28 @@ use burn::{
 
 pub fn infer<B: Backend>(
     artifact_dir: &str,
-    device: B::Device,
-    items: Vec<Spectra>,
+    device: &B::Device,
+    items: Vec<SpectrumSample>,
 ) -> Tensor<B, 2> {
     let config = TrainingConfig::load(format!("{artifact_dir}/config.json"))
         .expect("Config should exist for the model; run train first");
     let record = CompactRecorder::new()
-        .load(format!("{artifact_dir}/model").into(), &device)
+        .load(format!("{artifact_dir}/model").into(), device)
         .expect("Trained model should exist; run train first");
 
     let model = config
         .model
-        .init::<B>(&device, config.model.class_weights())
+        .init::<B>(device, config.model.class_weights())
         .load_record(record);
 
     let batcher = SpectraScribeBatcher::default();
-    let batch = batcher.batch(items, &device);
+    let batch = batcher.batch(items, device);
     model.forward(batch.spectra)
 }
 
 pub fn create_confusion_matrices<B: Backend>(
     predictions: Tensor<B, 2>,
-    items: Vec<Spectra>,
+    items: &[SpectrumSample],
     threshold: f64,
 ) -> Result<Vec<ConfusionMatrix>, SpectraError> {
     let mut confusion_matrices: Vec<ConfusionMatrix> = Vec::with_capacity(ELEMENT_COUNT);
@@ -50,19 +53,17 @@ pub fn create_confusion_matrices<B: Backend>(
             .try_into()
             .expect("Correct amount of tensor data");
 
-        for (i, (predicted_atom, true_atom)) in (output_data
-            .as_slice::<i32>()
-            ?   
-            .iter()
-            .zip(t.element_present))
-        .enumerate()
+        for (i, (predicted_atom, true_atom)) in
+            (output_data.as_slice::<i32>()?.iter().zip(t.element_present)).enumerate()
         {
             match (*predicted_atom, true_atom) {
                 (1, true) => confusion_matrices[i].true_positive += 1,
                 (0, false) => confusion_matrices[i].true_negative += 1,
                 (1, false) => confusion_matrices[i].false_positive += 1,
                 (0, true) => confusion_matrices[i].false_negative += 1,
-                (i32::MIN..=-1_i32, _) | (2_i32..=i32::MAX, _) => unreachable!("Values outside of 0 and 1 should be unreachable")
+                (i32::MIN..=-1_i32 | 2_i32..=i32::MAX, _) => {
+                    unreachable!("Values outside of 0 and 1 should be unreachable")
+                }
             }
         }
     }

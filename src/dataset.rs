@@ -6,12 +6,12 @@ use rand::{prelude::*, rngs::ChaCha8Rng, seq::SliceRandom};
 use burn::data::dataset::Dataset;
 
 use crate::{
-    data::{BIN_SIZE, ELEMENT_COUNT, ELEMENTS, Spectra},
+    data::{BIN_SIZE, ELEMENT_COUNT, ELEMENTS, SpectrumSample},
     error::SpectraError,
 };
 
 pub struct SpectraData {
-    pub(crate) dataset: Vec<Spectra>,
+    pub(crate) dataset: Vec<SpectrumSample>,
     pub(crate) class_weights: Vec<f32>,
 }
 
@@ -54,23 +54,23 @@ impl SpectraData {
         }
     }
 }
-fn load_spectra() -> Result<Vec<Spectra>, SpectraError> {
+fn load_spectra() -> Result<Vec<SpectrumSample>, SpectraError> {
     let load = pollster::block_on(
         MGFVec::<f64>::annotated_ms2()
             .target_directory("data")
             .load(),
     )?;
-    let mut output: Vec<Spectra> = Vec::with_capacity(load.spectra().len());
+    let mut output: Vec<SpectrumSample> = Vec::with_capacity(load.spectra().len());
     for spec in load.spectra() {
         let Some(formula) = spec.metadata().formula() else {
             continue;
         };
-        output.push(Spectra {
+        output.push(SpectrumSample {
             spectra: *spec
                 .linear_binned_intensities(0.0, 1000.0, BIN_SIZE)?
                 .as_array::<BIN_SIZE>()
                 .ok_or(SpectraError::InvalidArray)?,
-            element_present: *spec_occurrence(formula)?
+            element_present: *spec_occurrence(formula)
                 .as_array::<ELEMENT_COUNT>()
                 .ok_or(SpectraError::InvalidArray)?,
         });
@@ -80,17 +80,17 @@ fn load_spectra() -> Result<Vec<Spectra>, SpectraError> {
 
 fn spec_occurrence(
     formula: &ChemicalFormula<u32, i32>,
-) -> Result<[bool; ELEMENT_COUNT], SpectraError> {
+) -> [bool; ELEMENT_COUNT] {
     let mut elements_occurrence = [false; ELEMENT_COUNT];
     for (i, &e) in ELEMENTS.iter().enumerate() {
         if formula.contains_element(e) {
             elements_occurrence[i] = true;
         }
     }
-    Ok(elements_occurrence)
+    elements_occurrence
 }
 
-fn get_class_weights(data: &[Spectra]) -> Vec<f32> {
+fn get_class_weights(data: &[SpectrumSample]) -> Vec<f32> {
     let mut output: Vec<f32> = vec![0.0; ELEMENT_COUNT];
     let n_samples = data.len() as f32;
     let n_classes = ELEMENT_COUNT as f32;
@@ -101,7 +101,7 @@ fn get_class_weights(data: &[Spectra]) -> Vec<f32> {
             }
         }
     }
-    for weight in output.iter_mut() {
+    for weight in &mut output {
         if *weight == 0.0 {
             *weight = 1e-3;
         }
@@ -110,8 +110,8 @@ fn get_class_weights(data: &[Spectra]) -> Vec<f32> {
     output
 }
 
-impl Dataset<Spectra> for SpectraData {
-    fn get(&self, index: usize) -> Option<Spectra> {
+impl Dataset<SpectrumSample> for SpectraData {
+    fn get(&self, index: usize) -> Option<SpectrumSample> {
         self.dataset.get(index).cloned()
     }
     fn len(&self) -> usize {

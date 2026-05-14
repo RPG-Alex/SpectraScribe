@@ -3,13 +3,13 @@
 mod data;
 mod dataset;
 mod error;
+mod experimental_setup;
+mod holdout;
 mod inference;
 mod mcc;
 mod model;
 mod output;
 mod training;
-mod experimental_setup;
-mod holdout;
 
 use crate::{
     data::ELEMENT_COUNT, dataset::SpectraData, error::SpectraError,
@@ -43,13 +43,13 @@ fn main() -> Result<(), SpectraError> {
     );
 
     let results =
-        crate::inference::infer::<MyBackend>(artifact_dir, device, dataset.test(42).dataset);
+        crate::inference::infer::<MyBackend>(artifact_dir, &device, dataset.test(42).dataset);
 
-    let confusion_matrices = create_confusion_matrices(results, dataset.test(42).dataset, 0.5);
+    let confusion_matrices = create_confusion_matrices(results, &dataset.test(42).dataset, 0.5);
 
     let file = File::create("results.csv")?;
     let mut wtr = Writer::from_writer(file);
-    
+
     for matrix in confusion_matrices? {
         wtr.serialize(matrix)?;
     }

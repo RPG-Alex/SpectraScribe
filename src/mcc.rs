@@ -1,7 +1,7 @@
 use burn::{
     Tensor,
     prelude::*,
-    tensor::{Transaction, activation::sigmoid, backend::Backend},
+    tensor::{activation::sigmoid, backend::Backend},
     train::{
         MultiLabelClassificationOutput,
         metric::{
@@ -53,7 +53,7 @@ impl<B: Backend> MatthewsCorrelationMetric<B> {
 impl<B: Backend> Default for MatthewsCorrelationMetric<B> {
     fn default() -> Self {
         let threshold = 0.5;
-        let name = Arc::new(format!("MCC Score @ Threshold({})", threshold));
+        let name = Arc::new(format!("MCC Score @ Threshold({threshold})"));
 
         Self {
             name,
@@ -100,7 +100,7 @@ where
         let numerator = tp.clone() * tn.clone() - fp.clone() * fn_.clone();
 
         let denominator = ((tp.clone() + fp.clone())
-            * (tp.clone() + fn_.clone())
+            * (tp + fn_.clone())
             * (tn.clone() + fp)
             * (tn + fn_))
             .sqrt();
@@ -117,7 +117,7 @@ where
     }
 
     fn clear(&mut self) {
-        self.state.reset()
+        self.state.reset();
     }
 
     fn name(&self) -> burn::train::metric::MetricName {

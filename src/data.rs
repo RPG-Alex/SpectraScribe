@@ -1,8 +1,5 @@
 use burn::{data::dataloader::batcher::Batcher, prelude::*};
-use mascot_rs::{mascot_generic_format::MGFVec, prelude::Spectrum};
 use molecular_formulas::prelude::*;
-
-use crate::error::SpectraError;
 
 #[derive(Clone, Default)]
 pub struct SpectraScribeBatcher {}
@@ -138,13 +135,17 @@ pub const ELEMENT_COUNT: usize = ELEMENTS.len();
 pub const BIN_SIZE: usize = 1000; // need to figure out what is optimal value
 
 #[derive(Clone, Debug)]
-pub struct Spectra {
+pub struct SpectrumSample {
     pub(crate) spectra: [f64; BIN_SIZE],
     pub(crate) element_present: [bool; ELEMENT_COUNT],
 }
 
-impl<B: Backend> Batcher<B, Spectra, SpectraScribeBatch<B>> for SpectraScribeBatcher {
-    fn batch(&self, items: Vec<Spectra>, device: &<B as Backend>::Device) -> SpectraScribeBatch<B> {
+impl<B: Backend> Batcher<B, SpectrumSample, SpectraScribeBatch<B>> for SpectraScribeBatcher {
+    fn batch(
+        &self,
+        items: Vec<SpectrumSample>,
+        device: &<B as Backend>::Device,
+    ) -> SpectraScribeBatch<B> {
         let spectra = items
             .iter()
             .map(|item| TensorData::from(item.spectra).convert::<B::FloatElem>())
